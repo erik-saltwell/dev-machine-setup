@@ -9,7 +9,7 @@ On a blank machine, open a terminal and run the following.
 ### Install prerequisites
 
 ```bash
-sudo apt install -y wget unzip
+sudo apt install -y wget unzip curl
 ```
 
 ### Download and extract the repo
