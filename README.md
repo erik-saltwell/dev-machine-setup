@@ -6,9 +6,16 @@ Pyinfra-based setup for a fresh Ubuntu machine. Installs core packages, zsh + oh
 
 On a blank machine, open a terminal and run the following.
 
+### Install prerequisites
+
+```bash
+sudo apt install -y wget unzip
+```
+
 ### Download and extract the repo
 
 ```bash
+mkdir -p ~/proj
 cd ~/proj
 wget https://github.com/erik-saltwell/dev-machine-setup/archive/refs/heads/main.zip
 unzip main.zip
