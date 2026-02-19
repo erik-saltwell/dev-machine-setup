@@ -19,7 +19,7 @@ local = [
             "libssl-dev",
             "libffi-dev",
             "zlib1g-dev",],
-        "snaps_classic": ["code"],
+        "snaps_classic": ["code", "ghostty"],
         "snaps_modern": ["discord"],
         "user": "eriksalt",
         # dotfiles
