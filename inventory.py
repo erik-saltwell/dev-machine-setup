@@ -13,9 +13,9 @@ local = [
             "kate", 
             "remmina",
             "remmina-plugin-rdp",
-            "remmina-plugin-vnc",
-            "remmina-plugin-ssh",
-            "remmina-plugin-nx",
+            # "remmina-plugin-vnc",
+            # "remmina-plugin-ssh",
+            # "remmina-plugin-nx",
             
             # build essentials + common dev headers
             "build-essential",
