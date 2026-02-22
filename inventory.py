@@ -11,6 +11,11 @@ local = [
             "gpg", 
             "ca-certificates", 
             "kate", 
+            "remmina",
+            "remmina-plugin-rdp",
+            "remmina-plugin-vnc",
+            "remmina-plugin-ssh",
+            "remmina-plugin-nx",
             
             # build essentials + common dev headers
             "build-essential",
@@ -19,7 +24,7 @@ local = [
             "libssl-dev",
             "libffi-dev",
             "zlib1g-dev",],
-        "snaps_classic": ["code", "ghostty"],
+        "snaps_classic": ["ghostty"], #"code"],
         "snaps_modern": ["discord"],
         "user": "eriksalt",
         # dotfiles
