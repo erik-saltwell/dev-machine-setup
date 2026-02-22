@@ -45,7 +45,64 @@ Pyinfra changes your default shell to zsh and deploys new dotfiles. **Log out an
 - PATH changes (uv, snap, etc.) take effect
 - The 1Password `SSH_AUTH_SOCK` export is loaded
 
-## Part 2: Manual Steps
+## Part 2: Video Drivers
+
+Install video drivers before running the automated setup or rebooting into a full desktop environment.
+
+### NVIDIA Drivers
+
+Ubuntu's `ubuntu-drivers` tool detects your GPU and installs the recommended driver.
+
+**1. Identify your GPU and the recommended driver:**
+
+```bash
+ubuntu-drivers devices
+```
+
+Look for a line like `driver : nvidia-driver-570 - distro non-free recommended`. Note the package name.
+
+**2. Install the recommended driver automatically:**
+
+```bash
+sudo ubuntu-drivers autoinstall
+```
+
+Or install a specific version manually:
+
+```bash
+sudo apt install -y nvidia-driver-570
+```
+
+(Replace `570` with the version from the previous step.)
+
+**3. Reboot:**
+
+```bash
+sudo reboot
+```
+
+**4. Verify the driver loaded:**
+
+```bash
+nvidia-smi
+```
+
+You should see your GPU listed with driver version and CUDA version.
+
+**Troubleshooting:**
+- If `nvidia-smi` fails after reboot, Secure Boot may be blocking the unsigned kernel module. Disable Secure Boot in your UEFI/BIOS settings and reboot again.
+- If you need CUDA for development, install the CUDA toolkit separately after confirming `nvidia-smi` works: `sudo apt install -y nvidia-cuda-toolkit`
+
+### AMD / Intel Drivers
+
+AMD and Intel GPU drivers ship with the Ubuntu kernel and require no manual installation on Ubuntu 22.04+. If you have display issues, ensure your kernel is up to date:
+
+```bash
+sudo apt update && sudo apt upgrade -y
+sudo reboot
+```
+
+## Part 3: Manual Steps
 
 These require interactive login and can't be automated. Do them in order.
 
