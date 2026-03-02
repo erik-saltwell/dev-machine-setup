@@ -22,6 +22,7 @@ local = [
             "python3-dev",
             "pkg-config",
             "libssl-dev",
+            "ptyxis", 
             "libffi-dev",
             "zlib1g-dev",],
         "snaps_classic": ["ghostty"], #"code"],
