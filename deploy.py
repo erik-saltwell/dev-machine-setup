@@ -9,6 +9,7 @@ from ops.zsh import install_zsh, uninstall_zsh
 from ops.dotfiles import install_dotfiles, uninstall_dotfiles
 from ops.claude_code import install_claude_code, uninstall_claude_code
 from ops.remmina import install_remmina, uninstall_remmina
+from ops.flatpak import install_flatpak, uninstall_flatpak
 
 uninstall : bool = False
 
@@ -23,9 +24,11 @@ if uninstall:
     uninstall_chrome()
     uninstall_gh()
     uninstall_remmina()
+    uninstall_flatpak()
     uninstall_base()
 else:
     install_base()
+    install_flatpak()
     install_remmina()
     install_gh()
     install_chrome()

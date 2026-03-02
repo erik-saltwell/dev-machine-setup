@@ -22,11 +22,11 @@ local = [
             "python3-dev",
             "pkg-config",
             "libssl-dev",
-            "ptyxis", 
             "libffi-dev",
             "zlib1g-dev",],
         "snaps_classic": ["ghostty"], #"code"],
         "snaps_modern": ["discord"],
+        "flatpak_apps": ["app.devsuite.Ptyxis"],
         "user": "eriksalt",
         # dotfiles
         "dotfiles_repo_url": "https://github.com/erik-saltwell/dotfiles.git",
