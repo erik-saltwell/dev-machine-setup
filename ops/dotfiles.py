@@ -2,9 +2,16 @@
 from __future__ import annotations
 
 from pyinfra import host
+from pyinfra.facts.server import Which
 from pyinfra.operations import server, snap
 
-CHEZMOI_SOURCE_DIR = "$HOME/.local/share/chezmoi"
+from .util import as_root_kwargs, as_primary_user_kwargs, primary_home
+
+ROOT = as_root_kwargs()
+USER = as_primary_user_kwargs()
+
+# NOTE: must be relative components; do NOT use Path("/.local/...") here
+CHEZMOI_SOURCE_DIR = primary_home() / ".local" / "share" / "chezmoi"
 
 
 def install_dotfiles() -> None:
@@ -20,29 +27,28 @@ def install_dotfiles() -> None:
       - If initialized and dotfiles_update_every_run is True (default): `chezmoi update`
     """
     repo_url: str = host.data.dotfiles_repo_url  # hard-fail if missing
-    update_every_run: bool = getattr(host.data, 'dotfiles_update_every_run', True)
-    user: str = host.data.user
+    update_every_run: bool = host.data.get("dotfiles_update_every_run", True)
 
-    snap.package(
+    # Snap operation is plural in pyinfra
+    snap.packages(
         name="Install chezmoi (snap classic)",
         packages=["chezmoi"],
         classic=True,
+        **ROOT,
     )
 
-    # chezmoi must run as the target user so dotfiles deploy to their $HOME
-    # Always init if not already initialized
+    # Run as the target user so chezmoi uses that user's $HOME
     server.shell(
         name="Init dotfiles with chezmoi",
         commands=f'test -d "{CHEZMOI_SOURCE_DIR}" || chezmoi init --apply "{repo_url}"',
-        _sudo_user=user,
+        **USER,
     )
 
-    # Only update on subsequent runs if configured to do so
     if update_every_run:
         server.shell(
             name="Update dotfiles with chezmoi",
             commands=f'test -d "{CHEZMOI_SOURCE_DIR}" && chezmoi update',
-            _sudo_user=user,
+            **USER,
         )
 
 
@@ -55,18 +61,19 @@ def uninstall_dotfiles(*, purge_binary: bool = False) -> None:
 
     If purge_binary=True, also removes the chezmoi snap.
     """
-    user: str = host.data.user
-
-    server.shell(
-        name="Purge chezmoi state",
-        commands="chezmoi purge --force",
-        _sudo_user=user,
-    )
+    # Forgiving/idempotent: only attempt purge if chezmoi exists, and never fail the deploy
+    if host.get_fact(Which, command="chezmoi"):
+        server.shell(
+            name="Purge chezmoi state",
+            commands="chezmoi purge --force || true",
+            **USER,
+        )
 
     if purge_binary:
-        snap.package(
+        snap.packages(
             name="Remove chezmoi snap",
             packages=["chezmoi"],
             present=False,
             classic=True,
+            **ROOT,
         )

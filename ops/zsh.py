@@ -1,14 +1,17 @@
 # ops/zsh.py
 from __future__ import annotations
 
-from pyinfra import host
-from pyinfra.facts.server import Which
+from pyinfra.operations import files
 from pyinfra.operations import apt, server
+from pathlib import Path
+from .util import as_root_kwargs, as_primary_user_kwargs, primary_home, primary_user
+ROOT = as_root_kwargs()
+USER = as_primary_user_kwargs()
 
 ZSH_PATH = "/usr/bin/zsh"
 BASH_PATH = "/usr/bin/bash"
 
-OMZ_DIR = "~/.oh-my-zsh"
+OMZ_DIR = primary_home() / Path(".oh-my-zsh")
 OMZ_COMMIT = "45dd7d006ab2650273d9859f7e3224cf757a9db3"
 OMZ_INSTALLER_URL = f"https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/{OMZ_COMMIT}/tools/install.sh"
 
@@ -24,13 +27,15 @@ def install_zsh() -> None:
         name="Install zsh + prerequisites",
         packages=["zsh", "git", "curl"],
         update=True,
+        **ROOT
     )
 
     # 2) Set default shell for the user
     server.user(
         name="Set default shell to zsh",
-        user=host.data.user,
+        user=primary_user(),
         shell=ZSH_PATH,
+        **ROOT
     )
 
     # 3) Install oh-my-zsh (idempotent via directory guard)
@@ -43,8 +48,7 @@ def install_zsh() -> None:
             f'RUNZSH=no CHSH=no KEEP_ZSHRC=yes '
             f'sh -c "$(curl -fsSL {OMZ_INSTALLER_URL})"'
         ),
-        _sudo=True,
-        _sudo_user=host.data.user,
+        **USER
     )
 
 
@@ -57,21 +61,21 @@ def uninstall_zsh(*, revert_to_bash: bool = True, remove_oh_my_zsh: bool = True)
     if revert_to_bash:
         server.user(
             name="Revert default shell to bash",
-            user=host.data.user,
+            user=primary_user(),
             shell=BASH_PATH,
+            **ROOT
         )
 
-    if remove_oh_my_zsh:
-        # Remove the oh-my-zsh directory in the user's home.
-        server.shell(
-            name="Remove oh-my-zsh directory",
-            commands=f"rm -rf {OMZ_DIR}",
-            _sudo=True,
-            _sudo_user=host.data.user,
-        )
+    files.directory(
+        name="Remove oh-my-zsh directory",
+        path=str(OMZ_DIR),
+        present=False,
+        **USER,
+)
 
     apt.packages(
         name="Remove zsh",
         packages=["zsh"],
         present=False,
+        **ROOT
     )

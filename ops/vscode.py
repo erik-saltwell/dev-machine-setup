@@ -1,8 +1,12 @@
 from io import StringIO
 
 from pyinfra import host
-from pyinfra.facts.server import Which
+from pyinfra.facts.deb import DebPackages
 from pyinfra.operations import apt, files, server
+
+from .util import as_root_kwargs
+
+ROOT = as_root_kwargs()
 
 VSCODE_KEYRING = "/usr/share/keyrings/microsoft.gpg"
 VSCODE_SOURCES = "/etc/apt/sources.list.d/vscode.sources"
@@ -17,37 +21,39 @@ VSCODE_SOURCES_CONTENT = (
 
 
 def install_vscode() -> None:
+    # Only skip if the DEB package is installed (avoids skipping when snap 'code' exists)
+    installed = host.get_fact(DebPackages)
+    if "code" in installed:
+        return
+
+    # Install keyring with safe permissions (mode 644)
     server.shell(
         name="Install Microsoft apt keyring",
         commands=(
             f"test -f {VSCODE_KEYRING} || "
-            f"curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | "
-            f"gpg --dearmor -o {VSCODE_KEYRING}"
+            "wget -qO- https://packages.microsoft.com/keys/microsoft.asc | "
+            "gpg --dearmor > /tmp/microsoft.gpg && "
+            f"install -D -o root -g root -m 644 /tmp/microsoft.gpg {VSCODE_KEYRING} && "
+            "rm -f /tmp/microsoft.gpg; "
+            f"chmod 0644 {VSCODE_KEYRING}"
         ),
-        _sudo=True,
+        **ROOT,
     )
 
     files.put(
-        name="Add VS Code apt repo",
+        name="Add VS Code apt repo (deb822 .sources)",
         src=StringIO(VSCODE_SOURCES_CONTENT),
         dest=VSCODE_SOURCES,
-        _sudo=True,
+        mode="644",
+        **ROOT,
     )
 
-    apt.packages(
-        name="Install apt-transport-https",
-        packages=["apt-transport-https"],
-        _sudo=True,
-    )
-
-    if host.get_fact(Which, command="code"):
-        return
-
-    apt.update(name="apt update after adding VS Code repo")
+    apt.update(name="apt update after adding VS Code repo", **ROOT)
 
     apt.packages(
         name="Install VS Code",
         packages=["code"],
+        **ROOT,
     )
 
 
@@ -55,21 +61,21 @@ def uninstall_vscode() -> None:
     server.shell(
         name="Purge VS Code",
         commands="apt-get purge -y code || true",
-        _sudo=True,
+        **ROOT,
     )
 
     files.file(
         name="Remove VS Code apt sources file",
         path=VSCODE_SOURCES,
         present=False,
-        _sudo=True,
+        **ROOT,
     )
 
     files.file(
         name="Remove Microsoft apt keyring",
         path=VSCODE_KEYRING,
         present=False,
-        _sudo=True,
+        **ROOT,
     )
 
-    apt.update(name="apt update after removing VS Code repo")
+    apt.update(name="apt update after removing VS Code repo", **ROOT)

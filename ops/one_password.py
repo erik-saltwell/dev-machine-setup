@@ -2,10 +2,16 @@
 from __future__ import annotations
 
 from io import StringIO
+from pathlib import Path
 
 from pyinfra import host
-from pyinfra.facts.server import Which
+from pyinfra.facts.deb import DebPackages
 from pyinfra.operations import apt, files, server
+
+from .util import as_root_kwargs, as_primary_user_kwargs, primary_home
+
+ROOT = as_root_kwargs()
+USER = as_primary_user_kwargs()
 
 KEY_FINGERPRINT_SUFFIX = "AC2D62742012EA22"
 
@@ -27,11 +33,13 @@ ASC_URL = "https://downloads.1password.com/linux/keys/1password.asc"
 POL_URL = "https://downloads.1password.com/linux/debian/debsig/1password.pol"
 
 # What we add to shells (simple + portable)
-SSH_AUTH_SOCK_LINE = 'export SSH_AUTH_SOCK="$HOME/.1password/agent.sock"'
 SSH_AUTH_SOCK_COMMENT = "# 1Password SSH agent"
-BASHRC = "~/.bashrc"
-ZSHRC = "~/.zshrc"
-AGENT_DIR = "~/.1password"
+SSH_AUTH_SOCK_LINE = 'export SSH_AUTH_SOCK="$HOME/.1password/agent.sock"'
+
+
+def _primary_paths() -> tuple[Path, Path, Path]:
+    home = primary_home()
+    return home / ".1password", home / ".bashrc", home / ".zshrc"
 
 
 def _ensure_repo_and_keys() -> None:
@@ -43,24 +51,29 @@ def _ensure_repo_and_keys() -> None:
         name="Ensure deps for 1Password repo setup",
         packages=["curl", "gpg", "ca-certificates"],
         update=True,
+        **ROOT,
     )
 
+    # Install apt keyring with safe perms; always enforce 0644
     server.shell(
         name="Install 1Password apt keyring",
         commands=(
             f"test -f {ARCHIVE_KEYRING} || "
-            f"curl -fsSL {ASC_URL} | "
-            f"gpg --dearmor --output {ARCHIVE_KEYRING}"
+            "curl -fsSL " + ASC_URL + " | "
+            "gpg --dearmor > /tmp/1password-archive-keyring.gpg && "
+            f"install -D -o root -g root -m 644 /tmp/1password-archive-keyring.gpg {ARCHIVE_KEYRING} && "
+            "rm -f /tmp/1password-archive-keyring.gpg; "
+            f"chmod 0644 {ARCHIVE_KEYRING}"
         ),
-        _sudo=True,
+        **ROOT,
     )
 
-    # Repo list line per 1Password docs
     files.put(
         name="Add 1Password apt repo",
         src=StringIO(REPO_LINE),
         dest=APT_LIST,
-        _sudo=True,
+        mode="644",
+        **ROOT,
     )
 
     # debsig-verify policy per 1Password docs
@@ -68,34 +81,41 @@ def _ensure_repo_and_keys() -> None:
         name="Ensure debsig policy dir",
         path=DEBSIG_POLICY_DIR,
         present=True,
-        _sudo=True,
+        mode="755",
+        **ROOT,
     )
 
     files.download(
         name="Install debsig policy file",
         src=POL_URL,
         dest=DEBSIG_POLICY_FILE,
-        _sudo=True,
+        mode="644",
+        **ROOT,
     )
 
     files.directory(
         name="Ensure debsig keyring dir",
         path=DEBSIG_KEYRING_DIR,
         present=True,
-        _sudo=True,
+        mode="755",
+        **ROOT,
     )
 
+    # Install debsig keyring with safe perms; always enforce 0644
     server.shell(
         name="Install debsig keyring",
         commands=(
             f"test -f {DEBSIG_KEYRING_FILE} || "
-            f"curl -fsSL {ASC_URL} | "
-            f"gpg --dearmor --output {DEBSIG_KEYRING_FILE}"
+            "curl -fsSL " + ASC_URL + " | "
+            "gpg --dearmor > /tmp/1password-debsig.gpg && "
+            f"install -D -o root -g root -m 644 /tmp/1password-debsig.gpg {DEBSIG_KEYRING_FILE} && "
+            "rm -f /tmp/1password-debsig.gpg; "
+            f"chmod 0644 {DEBSIG_KEYRING_FILE}"
         ),
-        _sudo=True,
+        **ROOT,
     )
 
-    apt.update(name="apt update after adding 1Password repo")
+    apt.update(name="apt update after adding 1Password repo", **ROOT)
 
 
 def _ensure_shell_ssh_auth_sock() -> None:
@@ -103,33 +123,31 @@ def _ensure_shell_ssh_auth_sock() -> None:
     Make shells point SSH_AUTH_SOCK at ~/.1password/agent.sock.
     (You still need to enable the SSH agent inside the 1Password app.)
     """
-    user = host.data.user
+    agent_dir, bashrc, zshrc = _primary_paths()
 
-    # Ensure ~/.1password exists (user-level)
     files.directory(
         name="Ensure ~/.1password exists",
-        path=AGENT_DIR,
+        path=str(agent_dir),
         present=True,
-        _sudo_user=user,
+        **USER,
     )
 
-    # Add a comment + export line, idempotently (comment first, then export)
-    for path in (BASHRC, ZSHRC):
+    for rc_path in (bashrc, zshrc):
         files.line(
-            name=f"Add 1Password SSH agent comment in {path}",
-            path=path,
+            name=f"Add 1Password SSH agent comment in {rc_path}",
+            path=str(rc_path),
             line=SSH_AUTH_SOCK_COMMENT,
             present=True,
             ensure_newline=True,
-            _sudo_user=user,
+            **USER,
         )
         files.line(
-            name=f"Set SSH_AUTH_SOCK in {path}",
-            path=path,
+            name=f"Set SSH_AUTH_SOCK in {rc_path}",
+            path=str(rc_path),
             line=SSH_AUTH_SOCK_LINE,
             present=True,
             ensure_newline=True,
-            _sudo_user=user,
+            **USER,
         )
 
 
@@ -140,16 +158,17 @@ def install_1password() -> None:
       - 1Password CLI: package `1password-cli` (provides `op`)
     And wires SSH_AUTH_SOCK in bashrc/zshrc to ~/.1password/agent.sock.
     """
-    # Always ensure repo/keys and shell config are correct
     _ensure_repo_and_keys()
 
-    # Only install packages if not already present
-    app_ok = bool(host.get_fact(Which, command="1password"))
-    cli_ok = bool(host.get_fact(Which, command="op"))
+    installed = host.get_fact(DebPackages)
+    app_ok = "1password" in installed
+    cli_ok = "1password-cli" in installed
+
     if not (app_ok and cli_ok):
         apt.packages(
             name="Install 1Password app + CLI",
             packages=["1password", "1password-cli"],
+            **ROOT,
         )
 
     _ensure_shell_ssh_auth_sock()
@@ -168,38 +187,39 @@ def uninstall_1password(*, purge: bool = True, remove_shell_lines: bool = True) 
         server.shell(
             name="Purge 1Password app + CLI packages",
             commands="apt-get purge -y 1password 1password-cli || true",
-            _sudo=True,
+            **ROOT,
         )
     else:
         apt.packages(
             name="Remove 1Password app + CLI packages",
             packages=["1password", "1password-cli"],
             present=False,
+            **ROOT,
         )
 
     files.file(
         name="Remove 1Password apt repo list",
         path=APT_LIST,
         present=False,
-        _sudo=True,
+        **ROOT,
     )
     files.file(
         name="Remove 1Password apt keyring",
         path=ARCHIVE_KEYRING,
         present=False,
-        _sudo=True,
+        **ROOT,
     )
     files.file(
         name="Remove debsig policy file",
         path=DEBSIG_POLICY_FILE,
         present=False,
-        _sudo=True,
+        **ROOT,
     )
     files.file(
         name="Remove debsig keyring file",
         path=DEBSIG_KEYRING_FILE,
         present=False,
-        _sudo=True,
+        **ROOT,
     )
 
     server.shell(
@@ -208,25 +228,25 @@ def uninstall_1password(*, purge: bool = True, remove_shell_lines: bool = True) 
             f"rmdir {DEBSIG_POLICY_DIR} 2>/dev/null || true\n"
             f"rmdir {DEBSIG_KEYRING_DIR} 2>/dev/null || true"
         ),
-        _sudo=True,
+        **ROOT,
     )
 
-    apt.update(name="apt update after removing 1Password repo")
+    apt.update(name="apt update after removing 1Password repo", **ROOT)
 
     if remove_shell_lines:
-        user = host.data.user
-        for path in (BASHRC, ZSHRC):
+        _, bashrc, zshrc = _primary_paths()
+        for rc_path in (bashrc, zshrc):
             files.line(
-                name=f"Remove SSH_AUTH_SOCK export from {path}",
-                path=path,
+                name=f"Remove SSH_AUTH_SOCK export from {rc_path}",
+                path=str(rc_path),
                 line=SSH_AUTH_SOCK_LINE,
                 present=False,
-                _sudo_user=user,
+                **USER,
             )
             files.line(
-                name=f"Remove 1Password SSH agent comment from {path}",
-                path=path,
+                name=f"Remove 1Password SSH agent comment from {rc_path}",
+                path=str(rc_path),
                 line=SSH_AUTH_SOCK_COMMENT,
                 present=False,
-                _sudo_user=user,
+                **USER,
             )

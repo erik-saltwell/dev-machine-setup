@@ -10,6 +10,7 @@ from ops.dotfiles import install_dotfiles, uninstall_dotfiles
 from ops.claude_code import install_claude_code, uninstall_claude_code
 from ops.remmina import install_remmina, uninstall_remmina
 from ops.flatpak import install_flatpak, uninstall_flatpak
+from ops.autoremove import do_autoremove
 
 uninstall : bool = False
 
@@ -26,6 +27,7 @@ if uninstall:
     uninstall_remmina()
     uninstall_flatpak()
     uninstall_base()
+    do_autoremove()
 else:
     install_base()
     install_flatpak()
