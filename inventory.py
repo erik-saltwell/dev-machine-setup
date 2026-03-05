@@ -20,8 +20,7 @@ local = [
             "zlib1g-dev",
             "apt-transport-https",
             ],
-        "snaps_classic": ["ghostty"], 
-        "snaps_modern": ["discord"],
+        "snaps_modern": ["discord","ghostwriter"],
         "flatpak_apps": ["app.devsuite.Ptyxis"],
         # dotfiles
         "dotfiles_repo_url": "https://github.com/erik-saltwell/dotfiles.git",
