@@ -26,5 +26,32 @@ local = [
         # dotfiles
         "dotfiles_repo_url": "https://github.com/erik-saltwell/dotfiles.git",
         "dotfiles_update_every_run": True,
+
+        # dotfiles debugging / hang isolation
+        #"dotfiles_debug": True,
+        #"dotfiles_exclude_scripts": True,
+        "dotfiles_force": True,
+        "claude_mcp_servers": [
+            {
+                "name": "playwright",
+                "scope": "user",
+                "config": {
+                "type": "stdio",
+                "command": "~/.local/bin/claude-mcp-npx",
+                "args": ["-y", "@playwright/mcp@latest"],
+                "env": {},
+                },
+            },
+            {
+                "name": "chrome-devtools",
+                "scope": "user",
+                "config": {
+                "type": "stdio",
+                "command": "~/.local/bin/claude-mcp-npx",
+                "args": ["-y", "chrome-devtools-mcp@latest"],
+                "env": {},
+                },
+            },
+        ],
     }),
 ]

@@ -11,12 +11,16 @@ from ops.claude_code import install_claude_code, uninstall_claude_code
 from ops.remmina import install_remmina, uninstall_remmina
 from ops.flatpak import install_flatpak, uninstall_flatpak
 from ops.autoremove import do_autoremove
+from ops.nodejs import install_nodejs, uninstall_nodejs
+from ops.claude_mcp import install_claude_mcp_servers, uninstall_claude_mcp_servers
 
 uninstall : bool = False
 
-preinstall_setup()
+#preinstall_setup()
 
 if uninstall:
+    uninstall_claude_mcp_servers()
+    uninstall_nodejs()
     uninstall_claude_code()
     uninstall_dotfiles()
     uninstall_1password()
@@ -29,15 +33,17 @@ if uninstall:
     uninstall_base()
     do_autoremove()
 else:
-    install_base()
-    install_flatpak()
-    install_remmina()
-    install_gh()
-    install_chrome()
-    install_vscode()
-    install_zsh()
-    install_1password()
-    install_dotfiles()
-    install_claude_code()
+    #install_base()
+    #install_flatpak()
+    #install_remmina()
+    #install_gh()
+    #install_chrome()
+    #install_vscode()
+    #install_zsh()
+    #install_1password()
+    #install_dotfiles()
+    #install_claude_code()
+    #install_nodejs()
+    install_claude_mcp_servers()
 #preinstall_setup()
 
