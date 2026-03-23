@@ -19,6 +19,7 @@ local = [
             "libffi-dev",
             "zlib1g-dev",
             "apt-transport-https",
+            "ffmpeg",
             ],
         "snaps_modern": ["discord","ghostwriter"],
         "flatpak_apps": ["app.devsuite.Ptyxis"],
